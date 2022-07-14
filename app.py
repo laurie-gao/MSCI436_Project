@@ -4,6 +4,10 @@ import pandas as pd
 import numpy as np
 import altair as alt
 import pydeck as pdk
+import matplotlib.pyplot as plt
+from wordcloud import WordCloud
+from datetime import datetime
+from datetime import date
 
 st.title('MSCI 436 Final Project')
 st.header("Detecting Fradulent Transactions")
@@ -197,7 +201,7 @@ def get_gender_chart(data):
     lines = (
         alt.Chart(data, title="Predicted Fradulent Transactions by Gender")
         .mark_bar()
-        .encode(x="gender", y="count()", color="gender")
+        .encode(x="gender", y="count()", color=alt.Color("gender", legend=None))
     )
 
     points = lines.transform_filter(hover).mark_circle(size=65)
@@ -223,7 +227,116 @@ st.altair_chart(get_gender_chart(data), True)
 
 ## -- End Gender
 
+## Job
+st.set_option('deprecation.showPyplotGlobalUse', False)
+data[["job_a", "job_b"]] = data["job"].str.split(",", n=0, expand=True)
+job_frequencies = dict(data.groupby("job_a")["job_a"].count())
+wc = WordCloud(background_color="white", colormap="cividis")
+wc.generate_from_frequencies(job_frequencies)
+plt.imshow(wc, interpolation='bilinear')
+plt.axis("off")
+plt.show()
+st.pyplot()
+
+def get_job_chart(data):
+    hover = alt.selection_single(
+        fields=["job_a", "count"],
+        nearest=True,
+        on="mouseover",
+        empty="none"
+    )
+
+    lines = (
+        alt.Chart(data, title="Predicted Fradulent Transactions by Occupation")
+        .mark_bar()
+        .encode(x="job_a", y="count", color=alt.Color("job_a", legend=None))
+    )
+
+    points = lines.transform_filter(hover).mark_circle(size=65)
+
+    tooltips = (
+        alt.Chart(data)
+        .mark_rule()
+        .encode(
+            x="job_a",
+            y="count",
+            opacity=alt.condition(hover, alt.value(0.3), alt.value(0)),
+            tooltip=[
+                alt.Tooltip("job_a", title="Occupation"),
+                alt.Tooltip("count", title="Count"),
+            ]
+        )
+        .add_selection(hover)
+    )
+
+    return (lines+points+tooltips).interactive()
+
+
+st.altair_chart(get_job_chart(data.groupby("job_a").agg(count=("job_a", "count")).sort_values("count", ascending=False).head(10).reset_index()), True)
+
+## -- End job
+
+## Age ranges
+def get_age_chart(data):
+    hover = alt.selection_single(
+        fields=["age"],
+        nearest=True,
+        on="mouseover",
+        empty="none"
+    )
+
+    lines = (
+        alt.Chart(data, title="Predicted Fradulent Transactions by Age")
+        .mark_bar()
+        .encode(x=alt.X("age", bin=True), y="count()", color=alt.Color("age", legend=None))
+    )
+
+    points = lines.transform_filter(hover).mark_circle(size=65)
+
+    tooltips = (
+        alt.Chart(data)
+        .mark_rule()
+        .encode(
+            x="age",
+            y="count()",
+            opacity=alt.condition(hover, alt.value(0.3), alt.value(0)),
+            tooltip=[
+                alt.Tooltip("age", title="Age"),
+                alt.Tooltip("count()", title="Count"),
+            ]
+        )
+        .add_selection(hover)
+    )
+
+    return (lines+points+tooltips).interactive()
+
+def calculate_age(born):
+    born = datetime.strptime(born, "%Y-%m-%d").date()
+    today = date.today()
+    return today.year - born.year - ((today.month, today.day) < (born.month, born.day))
+
+data["age"] = data["dob"].apply(calculate_age)
+st.write(data)
+st.altair_chart(get_age_chart(data), True)
+
+## -- End age ranges
+
+## TX ranges
+## Age ranges
+def get_tx_chart(data):
+    return (
+        alt.Chart(data, title="Predicted Fradulent Transactions by Transaction Amount")
+        .mark_bar()
+        .encode(x=alt.X("amt", bin=True), y="count()", color=alt.Color("amt", legend=None))
+    )
+
+st.altair_chart(get_tx_chart(data), True)
+
+## -- end TX ranges
+
+## Merchants
+
+## End Merchants
+
 st.write("Todo")
-st.write("1. tsx value buckets")
-st.write("2. job, age")
-st.write("3. merchant, category")
+st.write("1. merchant, category")
